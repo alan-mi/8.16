@@ -1,0 +1,26 @@
+syntax = "proto3";
+package raft;
+
+message GetStatusReq {
+    string ts = 1;
+}
+message GetStatusRes {
+    string ts = 1;
+    string status = 2;
+}
+
+message IsRegisteredReq {
+    string ts = 1;
+    bool need_set = 2;
+    bool set_status = 3;
+}
+message IsRegisteredRes {
+    string ts = 1;
+    bool changed = 2;
+    bool status = 3;
+}
+
+service RaftService {
+    rpc GetStatus(GetStatusReq) returns (GetStatusRes);
+    rpc IsRegistered(IsRegisteredReq) returns (IsRegisteredRes);
+}

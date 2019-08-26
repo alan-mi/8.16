@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+message GetStatusReq {
+    string ts = 1;
+}
+message GetStatusRes {
+    string ts = 1;
+    string status = 2;
+}
+
+service RaftService {
+    rpc GetStatus(GetStatusReq) returns (GetStatusRes);
+}
