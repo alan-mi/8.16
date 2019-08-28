@@ -13,7 +13,7 @@ class DCSyncObj(SyncObj):
         allNodeAddrs = list(set(allNodeAddrs))
         self.selfNodeAddr = copy.deepcopy(selfNodeAddr)
         self.allNodeAddrs = copy.deepcopy(allNodeAddrs)
-        self.__counter = 0
+        self.__task_status = {}
         if selfNodeAddr in allNodeAddrs:
             allNodeAddrs.remove(selfNodeAddr)
         super(DCSyncObj, self).__init__(
@@ -49,7 +49,6 @@ class DCSyncObj(SyncObj):
         while not getattr(getattr(getattr(
                 self, '_SyncObj__server'
         ), '_TcpServer__socket'), '_closed'):
-            time.sleep(2)
             self.destroy()
         else:
             status = self.getStatus()
@@ -58,7 +57,6 @@ class DCSyncObj(SyncObj):
         while getattr(getattr(getattr(
                 self, '_SyncObj__server'
         ), '_TcpServer__socket'), '_closed'):
-            time.sleep(2)
             # while not self.isReady():
             pass
 
@@ -66,10 +64,10 @@ class DCSyncObj(SyncObj):
             print('{} is in raft cluster. \n{}'.format(self.selfNodeAddr, self.allNodeAddrs))
 
     @replicated
-    def setcounter(self):
-        self.__counter += 1
+    def set_task_status(self,task):
+        self.__task_status = task
 
-    def getcounter(self):
-        return self.__counter
+    def get_task_status(self):
+        return self.__task_status
 
 

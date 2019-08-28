@@ -7,6 +7,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 
+from cluster_demon.cluster_server import ClusterServer
 from cluster_demon.utils import dc_vip
 
 from cluster_raft import raft_init, tools, raft_grpc_pb2
@@ -69,6 +70,7 @@ def vip_load():
     print(vip_event.is_set())
     with grpc.insecure_channel("0.0.0.0:{}".format(CONFIG.get("raft_grpc_port"))) as chan:
         stub = raft_grpc_pb2_grpc.RaftServiceStub(channel=chan)
+        cs = ClusterServer(addr="0.0.0.0:8300")
         while True:
             time.sleep(1)
             ts = int(time.time())
@@ -78,15 +80,22 @@ def vip_load():
                     raft_status = json.loads(res_f.result().status)
                     # raft_status = raft_init.raft_obj.getStatus()
                     logger.info("vip_event {},leader {}, self_node {},isReady {}".format(vip_event.is_set(), raft_status['leader'], raft_status['self'], raft_status["isReady"]))
+
                     if vip_event.is_set() and raft_status['leader'] == raft_status['self'] and raft_status[
                         "state"] == 2:
                         dc_vip.vip.set_vip("up")
                         vip_event.clear()
+                        logger.info("启动>>>cluster_server")
+                        cs.start()
                     if not vip_event.is_set() and raft_status['leader'] != raft_status['self']:
                         dc_vip.vip.set_vip("down")
                         vip_event.set()
+                        logger.info("停止>>>cluster_server")
+                        cs.stop()
             except Exception as e:
                 logger(e)
+                logger.info("停止>>>cluster_server")
+                cs.stop()
                 continue
 
 
@@ -168,11 +177,6 @@ async def raft_event_loop(raft_obj):
 def main():
     p = spawn(target=vip_load, name="find_vip")
     try :
-        # new_loop = asyncio.new_event_loop()
-        # process = Process(target=start_loop,args=(new_loop,))
-        # # process.daemon = True
-        # process.start()
-        # asyncio.run_coroutine_threadsafe(raft_event_loop(raft_init.raft_obj),loop=new_loop)
         server = grpc.server(ThreadPoolExecutor(40))
         # 将对应的任务处理函数添加到rpc server中
         raft_grpc_pb2_grpc.add_RaftServiceServicer_to_server(raft_grpc_server.RaftService(), server)
@@ -181,7 +185,6 @@ def main():
         server.start()
         # 开启服务
         #TODO 开启进程选举会报错
-
         app.run(
             host='0.0.0.0',
             # 8586端口 只是在muster启动

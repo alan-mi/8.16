@@ -11,6 +11,8 @@ selfNode = local_ip()+":"+raft_port
 
 slave_status = Event()
 cluster_status = Event()
+task = {'machineID': '_001|_020', 'callbackAddress': '113.204.194.92:1320', 'clusterID': '_003', 'gpus': [{'model': 'GeForce GTX 1080 Ti', 'count': 1}, {'model': 'GeForce GTX 1070 Ti', 'count': 2}], 'Status': 2}
+
 
 
 
