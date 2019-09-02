@@ -32,7 +32,7 @@ class ClusterGRPCServer(sch_pb2_grpc.SkylarkServicer):
         err = {}
         proj_fields_map = {
             "taskID": "mi_alan",
-            "taskType": 3,
+            "taskType": "start",
             "taskName": "task_name",
             "projectHash": "QmPhoTxquhjH14hb5S82jnDtu8FcLnGzNZEvgN1jCtN15P",
             "gpus": [{"model": "GeForce GTX 1080 Ti", "count": 4}, {"model": "GeForce GTX 1070 Ti", "count": 0}],
@@ -50,12 +50,16 @@ class ClusterGRPCServer(sch_pb2_grpc.SkylarkServicer):
                 for mac,gpu in task["machines"].items():
                     print(mac)
                     print(gpu)
+                    print("GPU发送到任意机器")
                 err = {"msg": "ok", "status": 2}
             else:
                 err = {"msg": "gpu_not_free", "status": 1}
                 cli.free_gpu_by_task_id(proj_fields_map["taskID"])
-        if body["taskType"] == "start":
-            pass
+        if body["taskType"] == "stop":
+            print("根据taskid找出任意机器发送停止任务")
+        if body["taskType"] == "finish":
+            print("根据taskid释放gpu发送完成状态给调度")
+
         return sch_pb2.Proto(version=version, seq=seq, timestamp=int(time.time()), body=json.dumps(err).encode())
 
 
@@ -85,6 +89,7 @@ class ClusterServer(object):
             sch_pb2_grpc.add_SkylarkServicer_to_server(self.service,self.server)
             self.server.add_insecure_port('{}'.format(self.addr))
             self.server.start()
+
 
             # while True:
             #     time.sleep(60*60*24)

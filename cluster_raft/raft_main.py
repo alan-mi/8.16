@@ -1,14 +1,16 @@
 # coding:utf-8
 import asyncio
 import json
+import multiprocessing
 import sys
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from threading import Thread
+
 
 from cluster_demon.cluster_server import ClusterServer
 from cluster_demon.utils import dc_vip
+
 
 from cluster_raft import raft_init, tools, raft_grpc_pb2
 import grpc
@@ -16,7 +18,7 @@ import grpc
 from cluster_raft import raft_grpc_pb2_grpc, raft_grpc_server
 from sanic import Sanic, request, response
 
-from cluster_raft.tools import vip_event, local_ip, logger, stop_thread, spawn
+from cluster_raft.tools import vip_event, logger, stop_thread, spawn, up_event
 
 from conf import CONFIG
 
@@ -67,13 +69,17 @@ async def get_all_node(request):
 
 
 def vip_load():
-    print(vip_event.is_set())
+    logger.info(vip_event.is_set())
     with grpc.insecure_channel("0.0.0.0:{}".format(CONFIG.get("raft_grpc_port"))) as chan:
         stub = raft_grpc_pb2_grpc.RaftServiceStub(channel=chan)
-        cs = ClusterServer(addr="0.0.0.0:8300")
+
+        # p = multiprocessing.Process(target=send_status_to_schedule, args=())
+        # p.daemon = True
+        cli = []
         while True:
-            time.sleep(1)
+            time.sleep(3)
             ts = int(time.time())
+
             try:
                 res_f = stub.GetStatus.future(raft_grpc_pb2.GetStatusReq(ts=str(ts)),timeout=3)
                 if res_f.result().ts == str(ts):
@@ -81,21 +87,25 @@ def vip_load():
                     # raft_status = raft_init.raft_obj.getStatus()
                     logger.info("vip_event {},leader {}, self_node {},isReady {}".format(vip_event.is_set(), raft_status['leader'], raft_status['self'], raft_status["isReady"]))
 
-                    if vip_event.is_set() and raft_status['leader'] == raft_status['self'] and raft_status[
-                        "state"] == 2:
+                    if vip_event.is_set() and raft_status['leader'] == raft_status['self'] and raft_status["state"] == 2:
                         dc_vip.vip.set_vip("up")
                         vip_event.clear()
                         logger.info("启动>>>cluster_server")
+                        up_event.set()
+                        cs = ClusterServer(addr="0.0.0.0:8300")
                         cs.start()
+                        cli.append(cs)
                     if not vip_event.is_set() and raft_status['leader'] != raft_status['self']:
                         dc_vip.vip.set_vip("down")
                         vip_event.set()
                         logger.info("停止>>>cluster_server")
-                        cs.stop()
+                        up_event.clear()
+                        cli.pop().stop()
             except Exception as e:
-                logger(e)
+                logger.info(e)
                 logger.info("停止>>>cluster_server")
-                cs.stop()
+                for i in cli:
+                    i.stop()
                 continue
 
 
@@ -174,7 +184,7 @@ async def raft_event_loop(raft_obj):
                 tools.vip_event.clear()
 
 
-def main():
+def run_server():
     p = spawn(target=vip_load, name="find_vip")
     try :
         server = grpc.server(ThreadPoolExecutor(40))
@@ -200,7 +210,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    run_server()
 
 
 

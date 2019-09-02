@@ -18,6 +18,8 @@ from scapy.layers.inet import (
     ICMP
 )
 
+from cluster_raft.tools import logger
+
 cluster_config ={
 "master_host":  "192.168.137.200",
   "master_port":  8589,
@@ -70,7 +72,7 @@ class Vip(object):
         self.IP = IPy.IP(self.config.get('net2'))
         # self.set_vip('down')
         self._local_ip()
-        print('{} {}'.format(self.ip, self.ether_name))
+        logger.info('{} {}'.format(self.ip, self.ether_name))
 
     def _local_ip(self):
         addrs = psutil.net_if_addrs()
@@ -102,7 +104,7 @@ class Vip(object):
                 p.communicate()
                 self.broadcast_vip(v=v)
                 if v:
-                    print('{} {} {}'.format(traceback.extract_stack()[-2][2], self.vip, op))
+                    logger.info('{} {} {}'.format(traceback.extract_stack()[-2][2], self.vip, op))
         if op == 'down':
             if vip:
                 p = Popen('ifconfig {}:{} {} netmask {} {}'.format(
@@ -115,7 +117,7 @@ class Vip(object):
                 p.communicate()
                 self.clean_local_vip_arp()
                 if v:
-                    print('{} {} {}'.format(traceback.extract_stack()[-2][2], self.vip, op))
+                    logger.info('{} {} {}'.format(traceback.extract_stack()[-2][2], self.vip, op))
             else:
                 self.clean_local_vip_arp()
 
@@ -171,7 +173,7 @@ class Vip(object):
         #     op=2
         # ))
         if v:
-            print('{}: {} - {}'.format(self.vip, self.mac, self.ip))
+            logger.info('{}: {} - {}'.format(self.vip, self.mac, self.ip))
 
     def update_ip_mac_dict(self):
         self.ip_mac_dict = {}
@@ -182,7 +184,7 @@ class Vip(object):
         vip_packet = IP(dst=self.vip, ttl=64, id=random.randint(1, 65535)) / \
                      ICMP(id=random.randint(1, 65535), seq=random.randint(1, 65535)) / b''
         ping_vip = sr1(vip_packet, timeout=self.config.get('ping_vip_timeout'), verbose=False)
-        print('check vip online status:{}'.format(ping_vip))
+        logger.info('check vip online status:{}'.format(ping_vip))
         if ping_vip:
             return True
         else:

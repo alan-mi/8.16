@@ -10,7 +10,7 @@ from threading import Thread
 
 vip_event = Event()
 raft_loop = Event()
-
+up_event = Event()
 
 log_dir = os.path.expanduser('/tmp')+'/raft'
 log_name = 'raft'

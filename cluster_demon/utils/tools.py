@@ -1,10 +1,16 @@
 import os
 import time
 import json
+from socket import socket, AF_INET, SOCK_STREAM
+
+import grpc
 import psutil
 import traceback
 
+from cluster_demon.proto import sch_pb2_grpc, sch_pb2
 from cluster_raft.tools import logger
+from conf import CONFIG
+from cluster_demon.utils.client_mongo import cli,Mongo
 
 
 def update_shell_dc(i: dict, k: str, c: str, default: str = '') -> None:
@@ -164,8 +170,104 @@ def get_raft_init_nodes(i: dict) -> list:
 
 
 def get_node_gpu_count(heart_beat):
-    for k,v in heart_beat.items():
+    for k, v in heart_beat.items():
         if k == "gpus":
             lastHeartbeat = time.time()
-            return {k:v,"lastHeartbeat":lastHeartbeat}
+            return {k: v, "lastHeartbeat": lastHeartbeat}
 
+
+def local_ip():
+    s = socket(AF_INET, SOCK_STREAM)
+    s.connect(("1.1.1.1", 80))
+    ip = s.getsockname()[0]
+    return ip
+
+
+def heart_beat():
+    mongo = Mongo(host='192.168.137.2', port=27017, db="cluster", table="machines")
+    heart_beat_body = {}
+    LOCAL_HOST = local_ip()
+    grpc_public_port = CONFIG.get("grpc_public_port")
+    heart_beat_body["callbackAddress"] = "{sch_ip}:{port}".format(
+        sch_ip=CONFIG["sch_callback_ip"],
+        port=CONFIG["grpc_public_port"] if grpc_public_port else int(
+            CONFIG["sch_callback_port_prefix"]) + int(LOCAL_HOST.split(".")[-1]),
+    )
+    heart_beat_body["clusterID"] = CONFIG.get("cluster_id")
+    heart_beat_body["gpus"] =[{"model":k,"count":v} for k,v in mongo.use_gpu_by_num().items()]
+    return heart_beat_body
+
+
+def login_schedule():
+    flag = False
+    while not flag:
+        body = heart_beat()
+        time.sleep(3)
+        with grpc.insecure_channel(":".join(CONFIG["sch_grpc_server"])) as channel:
+            try:
+                stub = sch_pb2_grpc.SkylarkStub(channel=channel)
+                res = stub.Login(sch_pb2.Proto(version=1, seq=1, timestamp=int(time.time()),
+                                               body=json.dumps(body).encode()), timeout=10)
+                logger.warning("注册集群成功: SCHEDULE=>{}  STATUS<={}".format(body, res.body.decode()))
+                flag = True
+                break
+            except Exception as e:
+                logger.warning("注册集群失败: SCHEDULE=>{}  ERROR<={}".format(body, e))
+
+
+
+def heart_schedule():
+    while True:
+        body = heart_beat()
+        time.sleep(3)
+        with grpc.insecure_channel(":".join(CONFIG["sch_grpc_server"])) as channel:
+            try:
+                stub = sch_pb2_grpc.SkylarkStub(channel=channel)
+                res = stub.HeartBeat(
+                    sch_pb2.Proto(version=1, seq=1, timestamp=int(time.time()),body=json.dumps(body).encode()),
+                    timeout=10)
+                logger.warning("心跳任务发送: SCHEDULE=>{}  STATUS<={}".format(body, res.body.decode()))
+            except Exception as e:
+                logger.warning("心跳任务失败: SCHEDULE=>{}  ERROR<={}".format(body, e))
+
+def send_status_to_schedule():
+    logger.info("心跳任务启动")
+    login_schedule()
+    heart_schedule()
+
+def kill_children():
+    import psutil
+    ps = psutil.Process()
+    print(ps.pid, '当前进程', os.getpid(), os.getppid())
+    print(ps.children(recursive=True), "child")
+    if ps.children(recursive=True):
+        for i in ps.children(recursive=True):
+            print(i.pid, "child pid")
+            #
+            print(i.status())
+            i.terminate()
+            print(i.status())
+            # i.send_signal(sig=9)
+    print(ps.status())
+
+if __name__ == '__main__':
+    import multiprocessing
+    p = multiprocessing.Process(target=send_status_to_schedule,args=())
+    p.daemon=True
+    p.start()
+    print(p.pid,"子进程")
+    import psutil
+    ps = psutil.Process()
+    print(ps.pid,'当前进程',os.getpid(),os.getppid())
+    print(ps.children(recursive=True),"child")
+    for i in ps.children(recursive=True):
+        print(i.pid,"child pid")
+        #
+        print(i.status())
+        # i.kill()
+        print(i.status())
+        # i.send_signal(sig=9)
+
+    print(p.is_alive(), "子进程是否活着")
+    print(ps.status())
+    time.sleep(10)

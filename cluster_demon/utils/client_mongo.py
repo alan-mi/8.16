@@ -45,7 +45,7 @@ class Mongo:
 
     def use_gpu_by_num(self):
         res = self.table.aggregate(
-            [{"$match": {"heartBeat": {"$gte": int(time.time()) - 60*60}, "gpus.status": None}},
+            [{"$match": {"heartBeat": {"$gte": int(time.time()) - 5}, "gpus.status": None}},
              {"$project": {"gpus": 1, "_id": 0}},
              {"$unwind": "$gpus"}])
         it = [gpu["gpus"]["model"] for gpu in res if not gpu["gpus"]["status"]]
@@ -56,7 +56,7 @@ class Mongo:
         task = {}
         mac = {}
         for model in need_gpus:
-            rule = {"heartBeat": {"$gte": int(time.time()) - 60*60}, "gpus.status": None}
+            rule = {"heartBeat": {"$gte": int(time.time()) - 5}, "gpus.status": None}
             res = self.table.find(rule)
             for machine in res:
                 for gpu in machine["gpus"]:
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     # use_gpu_by_model()
     # cli.table.update({"restaurant_id": "41704620"},
     # {"$set": {"grades.1.grade": "East 31st Street"}})
-    # cli.add_data(a)
+    cli.add_data(a)
     for i in range(3):
         cli.table.update_many({'ctrlAvailable': 'N'}, {"$set": {"heartBeat": int(time.time()), "gpus.{}.status".format(i): None}}, )
     # cli.table.delete_one({'ctrlAvailable': 'N'})
@@ -146,6 +146,6 @@ if __name__ == '__main__':
     # cli.add_data(a)
     # cli.table.delete_many({"machineID": "_003|_03"})
 
-    gpus = [{"model": "GeForce GTX 1080 Ti", "count": 1}, {"model": "GeForce GTX 1070 Ti", "count": 1}]
-    if cli.compare_gpu(gpus):
-        print(cli.chooice_use_gpu_by_num(gpus, "TX0010231"))
+    # gpus = [{"model": "GeForce GTX 1080 Ti", "count": 1}, {"model": "GeForce GTX 1070 Ti", "count": 1}]
+    # if cli.compare_gpu(gpus):
+    #     print(cli.chooice_use_gpu_by_num(gpus, "TX0010231"))
