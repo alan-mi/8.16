@@ -57,6 +57,7 @@ def local_ip():
     s = socket(AF_INET, SOCK_STREAM)
     s.connect(("1.1.1.1", 80))
     ip = s.getsockname()[0]
+    logger.info("当前IP{}".format(ip))
     return ip
 
 def Singleton(func):
@@ -86,7 +87,7 @@ def stop_thread(thread, exctype=SystemExit):
     if not inspect.isclass(exctype):
         exctype = type(exctype)
     res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
-    print(res)
+    logger.info("杀死线程结果{}".format(res))
     if res == 0:
         raise ValueError("invalid thread id")
     elif res != 1:

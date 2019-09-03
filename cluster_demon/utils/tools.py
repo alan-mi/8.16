@@ -7,7 +7,7 @@ import grpc
 import psutil
 import traceback
 
-from cluster_demon.proto import sch_pb2_grpc, sch_pb2
+from cluster_demon.proto import sch_pb2_grpc, sch_pb2,agent_pb2
 from cluster_raft.tools import logger
 from conf import CONFIG
 from cluster_demon.utils.client_mongo import cli,Mongo
@@ -250,6 +250,10 @@ def kill_children():
             # i.send_signal(sig=9)
     print(ps.status())
 
+def finish():
+    with grpc.insecure_channel("192.168.137.200:8300") as channel:
+        stub = sch_pb2_grpc.SkylarkStub(channel=channel)
+
 if __name__ == '__main__':
     import multiprocessing
     p = multiprocessing.Process(target=send_status_to_schedule,args=())
@@ -271,3 +275,12 @@ if __name__ == '__main__':
     print(p.is_alive(), "子进程是否活着")
     print(ps.status())
     time.sleep(10)
+
+
+def sch_response(res):
+
+    return sch_pb2.Proto(version=1, seq=1, timestamp=int(time.time()), body=json.dumps(res).encode())
+
+def agent_response(res):
+
+    return agent_pb2.Proto(version=1, seq=1, timestamp=int(time.time()), body=json.dumps(res).encode())

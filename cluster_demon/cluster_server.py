@@ -5,9 +5,12 @@ from concurrent import futures
 
 import grpc
 
-from cluster_demon.proto import sch_pb2, sch_pb2_grpc
-from cluster_demon.utils.tools import get_node_gpu_count
+from cluster_demon.proto import sch_pb2, sch_pb2_grpc,agent_pb2,agent_pb2_grpc
+from cluster_demon.utils.tools import get_node_gpu_count, sch_response,agent_response
 from cluster_demon.utils.client_mongo import cli
+from cluster_raft.tools import logger
+
+
 
 class ClusterGRPCServer(sch_pb2_grpc.SkylarkServicer):
     def HeartBeat(self, request, complext):
@@ -15,12 +18,12 @@ class ClusterGRPCServer(sch_pb2_grpc.SkylarkServicer):
         seq = request.seq
         timestamp = request.timestamp
         body = request.body
-        a = {'machineID': '_001|_020', 'callbackAddress': '113.204.194.92:1320', 'clusterID': '_003', 'gpus': [{'model': 'GeForce GTX 1080 Ti', 'count': 1}, {'model': 'GeForce GTX 1070 Ti', 'count': 2}], 'Status': 2}
         body = json.loads(body)
+        # logger.info("接收到{}心跳".format(body.get("machineID")))
         body.update({"heartBeat":int(time.time())})
         cli.insert_update(body)
         err = {"msg":"ok","status":2}
-        return sch_pb2.Proto(version = version,seq = seq,timestamp = int(time.time()),body =json.dumps(err).encode())
+        return sch_response(err)
 
 
     def TaskStatus(self, request, context):
@@ -30,37 +33,40 @@ class ClusterGRPCServer(sch_pb2_grpc.SkylarkServicer):
         body = request.body
         body = json.loads(body)
         err = {}
-        proj_fields_map = {
-            "taskID": "mi_alan",
-            "taskType": "start",
-            "taskName": "task_name",
-            "projectHash": "QmPhoTxquhjH14hb5S82jnDtu8FcLnGzNZEvgN1jCtN15P",
-            "gpus": [{"model": "GeForce GTX 1080 Ti", "count": 4}, {"model": "GeForce GTX 1070 Ti", "count": 0}],
-            "engine": 2,
-            "mainRelativePath": "pytorch_demo/demo_s_d/torch_mnist_demo.py",
-            "runParam": "",
-            "projectName": "pytorch_demo.zip",
-            "outputPath": "pytorch_demo/demo_s_d/out"
-        }
-        if body["taskType"] == "start":
-            gpus = proj_fields_map["gpus"]
+        if body["status"] == "start":
+            logger.info("任务开始...")
+            gpus = body["gpus"]
             if cli.compare_gpu(gpus):
-                task = cli.chooice_use_gpu_by_num(gpus,task_id=proj_fields_map["taskID"])
-                print(task)
-                for mac,gpu in task["machines"].items():
-                    print(mac)
-                    print(gpu)
-                    print("GPU发送到任意机器")
+                all_chooice_machine = cli.chooice_use_gpu_by_num(gpus,task_id=body["taskID"])
+                print(all_chooice_machine)
+                print("GPU发送到任意机器")
                 err = {"msg": "ok", "status": 2}
+                body.update(all_chooice_machine["machines"])
+                try:
+                    with grpc.insecure_channel("192.168.137.4:28801") as channel:
+                        stub = agent_pb2_grpc.AgentServerStub(channel=channel)
+                        stub.TaskStart(agent_response(body))
+                except Exception as e:
+                    print(e)
+
             else:
                 err = {"msg": "gpu_not_free", "status": 1}
-                cli.free_gpu_by_task_id(proj_fields_map["taskID"])
-        if body["taskType"] == "stop":
-            print("根据taskid找出任意机器发送停止任务")
-        if body["taskType"] == "finish":
-            print("根据taskid释放gpu发送完成状态给调度")
 
-        return sch_pb2.Proto(version=version, seq=seq, timestamp=int(time.time()), body=json.dumps(err).encode())
+
+        if body["status"] == "stop":
+            logger.info("任务停止...")
+            print("根据taskid找出任意机器发送停止任务")
+
+
+            cli.free_gpu_by_task_id(body["taskID"])
+
+
+        if body["status"] == "finish":
+            logger.info("任务完成...")
+            print("根据taskid释放gpu发送完成状态给调度")
+            cli.free_gpu_by_task_id(body["taskID"])
+
+        return sch_response(err)
 
 
 
@@ -91,8 +97,7 @@ class ClusterServer(object):
             self.server.start()
 
 
-            # while True:
-            #     time.sleep(60*60*24)
+
 
         except KeyboardInterrupt:
             self.server.stop(0)
@@ -103,5 +108,7 @@ class ClusterServer(object):
 
 
 if __name__ == '__main__':
-    cs = ClusterServer(addr = "0.0.0.0:8400")
+    cs = ClusterServer(addr = "0.0.0.0:8300")
     cs.start()
+    while True:
+        time.sleep(60*60*24)
