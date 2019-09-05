@@ -4,13 +4,31 @@ from datetime import datetime
 
 import pymongo
 import collections
+from cluster_raft.tools import logger
 
 
 class Mongo:
     def __init__(self, host, port, db, table):
-        self.client = pymongo.MongoClient(host='192.168.137.2', port=27017)
+        self.db = db
+        self.table = table
+        self.connect(host, port)
         self.db = self.client[db]
         self.table = self.db[table]
+
+    def connect(self, host, port):
+        count = 1
+        while True:
+            self.client = pymongo.MongoClient(
+                host, port, serverSelectionTimeoutMS=3000)
+            try:
+                self.client.admin.command("ping")
+            except Exception as e:
+                logger.info("第{}连接数据库失败...{}".format(count, e))
+                count = count + 1
+            else:
+                break
+            if count == 4:
+                exit("退出")
 
     def add_data(self, data):
         self.table.insert_one(data)
@@ -56,14 +74,19 @@ class Mongo:
         task = {}
         mac = {}
         for model in need_gpus:
-            rule = {"heartBeat": {"$gte": int(time.time()) - 5}, "gpus.status": None}
+            rule = {
+                "heartBeat": {
+                    "$gte": int(
+                        time.time()) - 5},
+                "gpus.status": None}
             res = self.table.find(rule).sort('heartBeat', pymongo.DESCENDING)
             for machine in res:
                 for gpu in machine["gpus"]:
-                    if gpu.get("model") == model["model"] and not gpu.get("status") and model["count"]>0:
+                    if gpu.get("model") == model["model"] and not gpu.get(
+                            "status") and model["count"] > 0:
                         model["count"] -= 1
                         gpu["status"] = task_id
-                        if not mac.get(machine["machineID"]) :
+                        if not mac.get(machine["machineID"]):
                             mac[machine["machineID"]] = [gpu["id"]]
                         else:
                             mac[machine["machineID"]].append(gpu["id"])
@@ -72,7 +95,7 @@ class Mongo:
         task["machines"] = mac
         return task
 
-    def compare_gpu(self,gpus):
+    def compare_gpu(self, gpus):
         """
         判断gpu是否够用
         :param gpus: [{"model": "GeForce GTX 1080 Ti", "count": 2}, {"model": "GeForce GTX 1070 Ti", "count": 1}]
@@ -93,21 +116,32 @@ class Mongo:
         """
         doc = self.table.find_one({"machineID": machine["machineID"]})
         machine.update({"heartBeat": int(time.time())})
-        if not doc :
+        if not doc:
             self.add_data(machine)
         else:
-            if doc.get("heartBeat")< int(time.time())-5:
+            if doc.get("heartBeat") < int(time.time()) - 5:
                 for gpu in doc.get("gpus"):
                     if gpu["status"]:
-                        self.table.update_one(doc,{"$set": {"heartBeat": int(time.time())}})
+                        self.table.update_one(
+                            doc, {
+                                "$set": {
+                                    "heartBeat": int(
+                                        time.time())}})
                         break
                 else:
                     self.table.delete_one(doc)
                     self.table.insert_one(machine)
-                    self.table.update_one(machine, {"$set": {"heartBeat": int(time.time())}})
+                    self.table.update_one(
+                        machine, {
+                            "$set": {
+                                "heartBeat": int(
+                                    time.time())}})
             else:
-                self.table.update_one(doc, {"$set": {"heartBeat": int(time.time())}})
-
+                self.table.update_one(
+                    doc, {
+                        "$set": {
+                            "heartBeat": int(
+                                time.time())}})
 
 
 a = {
@@ -166,7 +200,8 @@ if __name__ == '__main__':
     # cli.add_data(a)
     # cli.table.delete_many({"machineID": "_003|_03"})
 
-    gpus = [{"model": "GeForce GTX 1080 Ti", "count": 1}, {"model": "GeForce GTX 1070 Ti", "count": 1}]
+    gpus = [{"model": "GeForce GTX 1080 Ti", "count": 1},
+            {"model": "GeForce GTX 1070 Ti", "count": 1}]
     if cli.compare_gpu(gpus):
         print(cli.chooice_use_gpu_by_num(gpus, "TX0010231"))
     while True:

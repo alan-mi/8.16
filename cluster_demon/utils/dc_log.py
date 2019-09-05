@@ -6,7 +6,7 @@ import logging
 import datetime
 import multiprocessing
 
-log_dir = os.path.expanduser('/tmp')+'/cluster_logs/'
+log_dir = os.path.expanduser('/tmp') + '/cluster_logs/'
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 elif not os.path.isdir(log_dir):
@@ -17,12 +17,14 @@ else:
 logger = logging.getLogger()
 # logger.setLevel(logging.INFO)
 logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(pathname)s %(funcName)s [line:%(lineno)d] %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s %(pathname)s %(funcName)s [line:%(lineno)d] %(message)s')
 
 logfile = logging.FileHandler('{}{}.log'.format(
     log_dir,
     # datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S_') + multiprocessing.current_process().name
-    datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S_') + os.path.splitext(os.path.basename(sys.argv[0]))[0]
+    datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S_') + \
+    os.path.splitext(os.path.basename(sys.argv[0]))[0]
 ), mode='a')
 # logfile.setLevel(logging.CRITICAL)
 # logfile.setLevel(logging.ERROR)

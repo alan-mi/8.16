@@ -61,7 +61,10 @@ def get_raft_init_nodes(i: dict) -> list:
 
 
 def get_id_by_ip(i: str) -> str:
-    return list(filter(lambda x: x['ip'] == i, CLUSTER_CONF.get('machines_details')))[0]['id']
+    return list(
+        filter(
+            lambda x: x['ip'] == i,
+            CLUSTER_CONF.get('machines_details')))[0]['id']
 
 
 def get_id_by_ip_port(i: str) -> str:
@@ -70,21 +73,31 @@ def get_id_by_ip_port(i: str) -> str:
 
 
 def get_details_by_id(i: str) -> dict:
-    return list(filter(lambda x: x['id'] == i, CLUSTER_CONF.get('machines_details')))[0]
+    return list(
+        filter(
+            lambda x: x['id'] == i,
+            CLUSTER_CONF.get('machines_details')))[0]
 
 
 def get_details_by_ip(i: str) -> dict:
-    return list(filter(lambda x: x['ip'] == i, CLUSTER_CONF.get('machines_details')))[0]
+    return list(
+        filter(
+            lambda x: x['ip'] == i,
+            CLUSTER_CONF.get('machines_details')))[0]
 
 
 def get_details_by_ip_port(i: str) -> dict:
-    return list(filter(lambda x: x['ip'] == i.split(':')[0], CLUSTER_CONF.get('machines_details')))[0]
+    return list(
+        filter(
+            lambda x: x['ip'] == i.split(':')[0],
+            CLUSTER_CONF.get('machines_details')))[0]
 
 
 raft_port = CLUSTER_CONF.get('raft_port')
 raft_cluster_machines = CLUSTER_CONF.get('raft_cluster_machines')
 current_node = '{}:{}'.format(current_ip, raft_port)
-other_nodes = ['{}:{}'.format(ip, raft_port) for ip in raft_cluster_machines if ip != current_ip]
+other_nodes = ['{}:{}'.format(ip, raft_port)
+               for ip in raft_cluster_machines if ip != current_ip]
 
 current_node_info = get_details_by_ip(current_ip)
 
@@ -96,16 +109,24 @@ def cluster_auth(func):
     def handle_request(request, *args, **kwargs):
         try:
             port = CLUSTER_CONF.get('{}_port'.format(SERVER_TYPE), '')
-            if '{}:{}'.format(request.environ.get('REMOTE_ADDR', ''), port) == \
-                    base64.b64decode(request.POST.get('authKey', '').encode()).decode() and \
-                    request.environ.get('HTTP_AGENT', '').lower() == CLUSTER_CONF.get('agent'):
+            if '{}:{}'.format(
+                    request.environ.get(
+                        'REMOTE_ADDR',
+                        ''),
+                    port) == base64.b64decode(
+                    request.POST.get(
+                    'authKey',
+                    '').encode()).decode() and request.environ.get(
+                        'HTTP_AGENT',
+                    '').lower() == CLUSTER_CONF.get('agent'):
                 return func(request, *args, **kwargs)
             else:
                 res = JsonResponse({'result': 421, 'msg': 'auth failed!'})
                 res.status_code = 421
                 return res
         except Exception as e:
-            res = JsonResponse({'result': 500, 'msg': '{}\n{}'.format(e, traceback.format_exc())})
+            res = JsonResponse(
+                {'result': 500, 'msg': '{}\n{}'.format(e, traceback.format_exc())})
             res.status_code = 500
             return res
     return handle_request
@@ -139,7 +160,8 @@ REQ_BASE = get_request_info(current_ip)
 )
 def get_raft_status(ts: float) -> dict:
     ts = str(ts)
-    res_f = local_grpc_stub.GetStatus.future(raft_grpc_pb2.GetStatusReq(ts=ts), timeout=1)
+    res_f = local_grpc_stub.GetStatus.future(
+        raft_grpc_pb2.GetStatusReq(ts=ts), timeout=1)
     if res_f.result().ts == ts:
         return json.loads(res_f.result().status)
     else:
@@ -152,18 +174,18 @@ def get_raft_status(ts: float) -> dict:
     #     raise Exception('request and response is not matched. ')
 
 
-def get_is_registered(ts: float, need_set: bool = False, set_status: bool = True) -> dict:
+def get_is_registered(
+        ts: float,
+        need_set: bool = False,
+        set_status: bool = True) -> dict:
     ts = str(ts)
     if need_set:
-        res_f = local_grpc_stub.IsRegistered.future(raft_grpc_pb2.IsRegisteredReq(
-            ts=ts,
-            need_set=need_set,
-            set_status=set_status
-        ))
+        res_f = local_grpc_stub.IsRegistered.future(
+            raft_grpc_pb2.IsRegisteredReq(
+                ts=ts, need_set=need_set, set_status=set_status))
     else:
-        res_f = local_grpc_stub.IsRegistered.future(raft_grpc_pb2.IsRegisteredReq(
-            ts=ts
-        ))
+        res_f = local_grpc_stub.IsRegistered.future(
+            raft_grpc_pb2.IsRegisteredReq(ts=ts))
     if res_f.result().ts == ts:
         return res_f.result().status
     else:
@@ -213,7 +235,8 @@ def params_check(method, check_dict):
             check_it = check_dict.get(func.__name__, {}).get(method, [])
             method_params = getattr(request, method)
             params_dict = {}
-            if all(map(lambda x: x is not None, [method_params.get(k, None) for k in check_it])):
+            if all(map(lambda x: x is not None, [
+                   method_params.get(k, None) for k in check_it])):
                 params_dict.update({k: method_params.get(k) for k in check_it})
                 return func(request, params_dict, *args, **kwargs)
             else:
@@ -264,7 +287,9 @@ def get_cn_an(raft_status=None):
                     break
         except Exception as e:
             # tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
-            tools.logger.info('tried to get status from {} failed, trying other ways.'.format(vip.vip))
+            tools.logger.info(
+                'tried to get status from {} failed, trying other ways.'.format(
+                    vip.vip))
             init_nodes = tools.get_raft_init_nodes(CLUSTER_CONF)
         else:
             init_nodes = an
@@ -272,7 +297,8 @@ def get_cn_an(raft_status=None):
         an = list(tools.get_all_nodes_from_raft_status(raft_status).keys())
         return cn, an
     else:
-        init_nodes = list(tools.get_all_nodes_from_raft_status(raft_status).keys())
+        init_nodes = list(
+            tools.get_all_nodes_from_raft_status(raft_status).keys())
     try:
         for i in init_nodes:
             if i == cn:
@@ -284,19 +310,22 @@ def get_cn_an(raft_status=None):
                         CLUSTER_CONF.get('raft_http_port'),
                         cn
                     )).json()
-                    an = list(tools.get_all_nodes_from_raft_status(resp).keys())
+                    an = list(
+                        tools.get_all_nodes_from_raft_status(resp).keys())
                     if cn in an:
                         break
             except Exception as e:
                 # tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
-                tools.logger.info('tried to get status from {} failed, trying other ways.'.format(i))
+                tools.logger.info(
+                    'tried to get status from {} failed, trying other ways.'.format(i))
             else:
                 break
         if not resp:
             raise Exception('init nodes...')
     except Exception as e:
         # tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
-        tools.logger.info('tried to get status from online status failed, trying init nodes: {}.'.format(init_nodes))
+        tools.logger.info(
+            'tried to get status from online status failed, trying init nodes: {}.'.format(init_nodes))
         an = init_nodes
     else:
         an = list(tools.get_all_nodes_from_raft_status(resp).keys())

@@ -48,17 +48,20 @@ async def raft_damon(raft_obj):
                             try:
                                 with grpc.insecure_channel(common.CLUSTER_CONF.get('cluster_lv1_call_center')) as \
                                         channel:
-                                    stub = cluster_strategy_pb2_grpc.StrategyServiceStub(channel)
+                                    stub = cluster_strategy_pb2_grpc.StrategyServiceStub(
+                                        channel)
                                     resp = stub.ClusterMasterChangeNotify(
                                         cluster_strategy_pb2.ClusterMasterChangeNotifyRequest(
                                             cluster_name=common.CLUSTER_CONF['cluster_name'],
                                             pre_master_name='{}-{}'.format(
                                                 pre_master,
-                                                tools.get_id_by_host_port(pre_master),
+                                                tools.get_id_by_host_port(
+                                                    pre_master),
                                             ),
                                             cur_master_name='{}-{}'.format(
                                                 cur_master,
-                                                tools.get_id_by_host_port(cur_master),
+                                                tools.get_id_by_host_port(
+                                                    cur_master),
                                             ),
                                             # pre_master_name=raft_obj.last_n_term_info(2).get('leader'),
                                             # cur_master_name=status.get('leader'),
@@ -66,18 +69,23 @@ async def raft_damon(raft_obj):
                                         ),
                                         timeout=1
                                     )
-                                    tools.logger.warning('{}'.format(resp.status) * 100)
+                                    tools.logger.warning(
+                                        '{}'.format(resp.status) * 100)
                                     is_send = True
                             except Exception as e:
-                                tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
+                                tools.logger.warning(
+                                    '{}\n{}'.format(e, traceback.format_exc()))
                     else:
                         is_send = False
                     if not raft_obj.dc_get_registered():
                         raft_obj.dc_set_registered(True)
                         try:
-                            gpu_dict = dc_mongo.db.get_collection('gpu').find_one()
+                            gpu_dict = dc_mongo.db.get_collection(
+                                'gpu').find_one()
                         except Exception as e:
-                            tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
+                            tools.logger.warning(
+                                '{}\n{}'.format(
+                                    e, traceback.format_exc()))
                         ips = [
                             ip for ip in common.CLUSTER_CONF.get('raft_cluster_machines')
                             if ip == common.vip.ip or status.get('partner_node_status_server_{}:{}'.format(
@@ -86,18 +94,22 @@ async def raft_damon(raft_obj):
                         ]
                         try:
                             with grpc.insecure_channel(common.CLUSTER_CONF.get('cluster_lv1_call_center')) as channel:
-                                stub = cluster_strategy_pb2_grpc.StrategyServiceStub(channel)
+                                stub = cluster_strategy_pb2_grpc.StrategyServiceStub(
+                                    channel)
                                 address = '{}:{}'.format(
-                                            common.CLUSTER_CONF.get('public_ip'),
-                                            common.CLUSTER_CONF.get('grpc_port_public'),
-                                        )
+                                    common.CLUSTER_CONF.get('public_ip'),
+                                    common.CLUSTER_CONF.get('grpc_port_public'),
+                                )
                                 downlink_bandwidth = float(re.match(
                                     r'(?P<m>\d+)M',
                                     common.CLUSTER_CONF.get('network_info')['DownlinkBandwidth']
                                 ).groupdict()['m']) * 1024 * 1024
-                                telecom_operators = common.CLUSTER_CONF.get('network_info')['ISP_lite']
-                                longitude = common.CLUSTER_CONF.get('location')['1'].get('lng')
-                                latitude = common.CLUSTER_CONF.get('location')['1'].get('lat')
+                                telecom_operators = common.CLUSTER_CONF.get('network_info')[
+                                    'ISP_lite']
+                                longitude = common.CLUSTER_CONF.get('location')[
+                                    '1'].get('lng')
+                                latitude = common.CLUSTER_CONF.get('location')[
+                                    '1'].get('lat')
                                 count_1070Ti = reduce(
                                     lambda x, y: x + y, list(map(
                                         lambda ip: tools.get_details_by_ip(
@@ -118,16 +130,14 @@ async def raft_damon(raft_obj):
                                 # count_1080Ti=gpu_dict['max_gpu_b']
                                 timestamp = int(time.time())
                                 master_name = '{}-{}'.format(
-                                    status.get('leader'),
-                                    tools.get_id_by_host_port(status.get('leader')),
-                                )
+                                    status.get('leader'), tools.get_id_by_host_port(
+                                        status.get('leader')), )
                                 cluster_name = common.CLUSTER_CONF['cluster_name']
                                 cluster_id = common.CLUSTER_CONF['cluster_id']
                                 cluster_public_url = 'http://{}:{}/master/api'.format(
-                                    common.CLUSTER_CONF['public_ip'],
-                                    common.CLUSTER_CONF['public_port'],
-                                )
-                                if common.current_node == raft_obj.getStatus()['leader']:
+                                    common.CLUSTER_CONF['public_ip'], common.CLUSTER_CONF['public_port'], )
+                                if common.current_node == raft_obj.getStatus()[
+                                        'leader']:
                                     resp = stub.ClusterRegister(cluster_strategy_pb2.ClusterRegisterRequest(
                                         address=address,
                                         downlink_bandwidth=downlink_bandwidth,
@@ -165,10 +175,14 @@ async def raft_damon(raft_obj):
                                     ),
                                         timeout=1
                                     )
-                                    tools.logger.warning('{}'.format(resp.status*3) * 100)
-                                tools.logger.warning('{}'.format(resp.status*2) * 100)
+                                    tools.logger.warning(
+                                        '{}'.format(resp.status * 3) * 100)
+                                tools.logger.warning(
+                                    '{}'.format(resp.status * 2) * 100)
                         except Exception as e:
-                            tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
+                            tools.logger.warning(
+                                '{}\n{}'.format(
+                                    e, traceback.format_exc()))
                             raft_obj.dc_set_registered(False)
                     raft_obj.is_alive_then_clean(clean=False)
                     try:
@@ -202,7 +216,9 @@ async def raft_damon(raft_obj):
                                     on: status.get('partner_node_status_server_{}'.format(on), None)
                                 })
                     except Exception as e:
-                        tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
+                        tools.logger.warning(
+                            '{}\n{}'.format(
+                                e, traceback.format_exc()))
                     common.raft_node_disable.clear()
                     common.raft_node_enable.set()
                 else:
@@ -228,32 +244,46 @@ async def raft_damon(raft_obj):
                 f = time.time()
                 h = time.time()
                 if not round_count % 100:
-                    tools.logger.info('Term-{:<5} Master: {}, Not_Online: {} \na-b: {:.3f} b-c: {:.3f} c-d: '
-                                        '{:.3f} d-e: {:.3f} e-f: {:.3f} f-h: {:.3f} round_count: {}'.format(
-                                            status.get('raft_term'),
-                                            status.get('leader'),
-                                            not_online,
-                                            b-a, c-b, d-c, e-d, f-e, h-f, round_count))
+                    tools.logger.info(
+                        'Term-{:<5} Master: {}, Not_Online: {} \na-b: {:.3f} b-c: {:.3f} c-d: '
+                        '{:.3f} d-e: {:.3f} e-f: {:.3f} f-h: {:.3f} round_count: {}'.format(
+                            status.get('raft_term'),
+                            status.get('leader'),
+                            not_online,
+                            b - a,
+                            c - b,
+                            d - c,
+                            e - d,
+                            f - e,
+                            h - f,
+                            round_count))
                 round_count += 1
             try:
                 op, info = common.raft_slave_queue.get_nowait()
             except Exception as e:
-                tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
+                tools.logger.warning(
+                    '{}\n{}'.format(
+                        e, traceback.format_exc()))
                 op, info = None, None
             if op:
                 if op == 'add':
-                    raft_obj.allNodeAddrs = tools.get_all_nodes_from_raft_status(info)
+                    raft_obj.allNodeAddrs = tools.get_all_nodes_from_raft_status(
+                        info)
                     raft_obj.init()
                 if op == 'remove':
                     try:
                         raft_obj.destory()
                     except Exception as e:
-                        tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
+                        tools.logger.warning(
+                            '{}\n{}'.format(
+                                e, traceback.format_exc()))
             if common.raft_node_disable.is_set() and raft_obj.check_self_status():
                 try:
                     raft_obj.destory()
                 except Exception as e:
-                    tools.logger.warning('{}\n{}'.format(e, traceback.format_exc()))
+                    tools.logger.warning(
+                        '{}\n{}'.format(
+                            e, traceback.format_exc()))
                 common.raft_node_disable.clear()
                 common.raft_node_enable.wait()
                 raft_obj.init_base_online_nodes()

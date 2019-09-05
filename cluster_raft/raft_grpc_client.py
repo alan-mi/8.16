@@ -26,15 +26,22 @@ if __name__ == '__main__':
             while True:
                 time.sleep(1)
                 ts = int(time.time())
-                try :
-                    res_f = stub.GetStatus.future(raft_grpc_pb2.GetStatusReq(ts=str(ts)))
+                try:
+                    res_f = stub.GetStatus.future(
+                        raft_grpc_pb2.GetStatusReq(ts=str(ts)))
                     if res_f.result().ts == str(ts):
                         raft_status = json.loads(res_f.result().status)
-                        print(vip_event.is_set(), raft_status['leader'], raft_status['self'], raft_status["state"])
-                        if vip_event.is_set() and raft_status['leader'] == raft_status['self'] and raft_status["state"] == 2:
+                        print(
+                            vip_event.is_set(),
+                            raft_status['leader'],
+                            raft_status['self'],
+                            raft_status["state"])
+                        if vip_event.is_set(
+                        ) and raft_status['leader'] == raft_status['self'] and raft_status["state"] == 2:
                             vip.set_vip("up")
                             vip_event.clear()
-                        if not vip_event.is_set() and raft_status['leader'] != raft_status['self']:
+                        if not vip_event.is_set(
+                        ) and raft_status['leader'] != raft_status['self']:
                             vip.set_vip("down")
                             vip_event.set()
                 except Exception as e:

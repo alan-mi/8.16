@@ -5,12 +5,13 @@ import time
 
 from cluster_demon.utils.tools import send_status_to_schedule, kill_children
 from cluster_raft.tools import up_event, stop_thread, logger
-from cluster_raft.raft_main import run_server,spawn
+from cluster_raft.raft_main import run_server, spawn
 
 
 class Cluster_Server:
     def __init__(self):
         pass
+
     def test(self):
         flag = True
         a = []
@@ -26,7 +27,6 @@ class Cluster_Server:
                 if a:
                     stop_thread(a.pop())
 
-
     def heart_beat(self):
 
         p = spawn(target=self.test)
@@ -41,15 +41,6 @@ class Cluster_Server:
         self.raft_server()
 
 
-
-
-
-
-
-
 if __name__ == '__main__':
     cs = Cluster_Server()
     cs.run()
-
-
-

@@ -20,44 +20,43 @@ from scapy.layers.inet import (
 
 from cluster_raft.tools import logger
 
-cluster_config ={
-"master_host":  "192.168.137.200",
-  "master_port":  8589,
-  "slave_port": 8588,
-  "agent": "dc_agent",
-  "cluster_id": "_001",
-  "cluster_name": "ClusterTest",
-  "cluster_equipment_number": 38,
-  "cluster_status": 0,
-  "cluster_created_at": "2019-01-31T11:27:15.850",
-  "vip": "192.168.137.200",
-  "vip_num": 2,
-  "raft_port": 8587,
-  "raft_grpc_port": 8586,
-  "raft_http_port": 8585,
-  "grpc_port": 8590,
-  "grpc_port_public": 18590,
-  "cluster_server_port": 50050,
-  "ai_server_port": 50051,
-  "raft_node_offline_limit": 60,
-  "raft_leader_interval_hours": 10000,
-  "ping_vip_timeout": 1,
-  "cluster_lv1_call_center": "47.111.5.37:6001",
-  "mongo_center": "47.110.155.194:9000",
-  "public_ip": "113.204.194.92",
-  "public_port": 18589,
-  "arp_cheat_ip": "192.168.137.25",
-  "net_address": "192.168.137.0",
-  "netmask": "255.255.255.0",
-  "net1": "192.168.137.0/24",
-  "net2": "192.168.137.0/255.255.255.0",
-  "port": 25252,
-  "heartbeat": 0.5,
+cluster_config = {
+    "master_host": "192.168.137.200",
+    "master_port": 8589,
+    "slave_port": 8588,
+    "agent": "dc_agent",
+    "cluster_id": "_001",
+    "cluster_name": "ClusterTest",
+    "cluster_equipment_number": 38,
+    "cluster_status": 0,
+    "cluster_created_at": "2019-01-31T11:27:15.850",
+    "vip": "192.168.137.200",
+    "vip_num": 2,
+    "raft_port": 8587,
+    "raft_grpc_port": 8586,
+    "raft_http_port": 8585,
+    "grpc_port": 8590,
+    "grpc_port_public": 18590,
+    "cluster_server_port": 50050,
+    "ai_server_port": 50051,
+    "raft_node_offline_limit": 60,
+    "raft_leader_interval_hours": 10000,
+    "ping_vip_timeout": 1,
+    "cluster_lv1_call_center": "47.111.5.37:6001",
+    "mongo_center": "47.110.155.194:9000",
+    "public_ip": "113.204.194.92",
+    "public_port": 18589,
+    "arp_cheat_ip": "192.168.137.25",
+    "net_address": "192.168.137.0",
+    "netmask": "255.255.255.0",
+    "net1": "192.168.137.0/24",
+    "net2": "192.168.137.0/255.255.255.0",
+    "port": 25252,
+    "heartbeat": 0.5,
 }
 
 
 conf.verb = 0
-
 
 
 class Vip(object):
@@ -84,7 +83,10 @@ class Vip(object):
                         len(addrs[k]) != 1:
                     self.ip = v1.address
                     self.ether_name = k
-                    self.mac = list(filter(lambda x: x.family == socket.AF_PACKET, addrs[k]))[0].address
+                    self.mac = list(
+                        filter(
+                            lambda x: x.family == socket.AF_PACKET,
+                            addrs[k]))[0].address
                     break
 
     def set_vip(self, op, v=True):
@@ -104,7 +106,8 @@ class Vip(object):
                 p.communicate()
                 self.broadcast_vip(v=v)
                 if v:
-                    logger.info('{} {} {}'.format(traceback.extract_stack()[-2][2], self.vip, op))
+                    logger.info('{} {} {}'.format(
+                        traceback.extract_stack()[-2][2], self.vip, op))
         if op == 'down':
             if vip:
                 p = Popen('ifconfig {}:{} {} netmask {} {}'.format(
@@ -117,7 +120,8 @@ class Vip(object):
                 p.communicate()
                 self.clean_local_vip_arp()
                 if v:
-                    logger.info('{} {} {}'.format(traceback.extract_stack()[-2][2], self.vip, op))
+                    logger.info('{} {} {}'.format(
+                        traceback.extract_stack()[-2][2], self.vip, op))
             else:
                 self.clean_local_vip_arp()
 
@@ -157,7 +161,8 @@ class Vip(object):
         Thread(target=self.update_ip_mac_dict, args=()).start()
 
     def broadcast_vip(self, v=False):
-        sendp(Ether(dst='ff:ff:ff:ff:ff:ff')/ARP(hwsrc=self.mac, psrc=self.vip))
+        sendp(Ether(dst='ff:ff:ff:ff:ff:ff') /
+              ARP(hwsrc=self.mac, psrc=self.vip))
         # sendp(Ether(dst=getmacbyip('10.10.2.254'))/ARP(
         #     hwsrc=self.mac,
         #     psrc=self.vip,
@@ -177,13 +182,18 @@ class Vip(object):
 
     def update_ip_mac_dict(self):
         self.ip_mac_dict = {}
-        ans, unans = srp(Ether(dst="FF:FF:FF:FF:FF:FF") / ARP(pdst=self.config.get('net1')), timeout=1)
-        self.ip_mac_dict.update({rcv.sprintf("%ARP.psrc%"): rcv.sprintf("%Ether.src%") for snd, rcv in ans})
+        ans, unans = srp(Ether(dst="FF:FF:FF:FF:FF:FF") /
+                         ARP(pdst=self.config.get('net1')), timeout=1)
+        self.ip_mac_dict.update(
+            {rcv.sprintf("%ARP.psrc%"): rcv.sprintf("%Ether.src%") for snd, rcv in ans})
 
     def ping_vip(self):
         vip_packet = IP(dst=self.vip, ttl=64, id=random.randint(1, 65535)) / \
-                     ICMP(id=random.randint(1, 65535), seq=random.randint(1, 65535)) / b''
-        ping_vip = sr1(vip_packet, timeout=self.config.get('ping_vip_timeout'), verbose=False)
+            ICMP(id=random.randint(1, 65535), seq=random.randint(1, 65535)) / b''
+        ping_vip = sr1(
+            vip_packet,
+            timeout=self.config.get('ping_vip_timeout'),
+            verbose=False)
         logger.info('check vip online status:{}'.format(ping_vip))
         if ping_vip:
             return True

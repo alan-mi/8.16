@@ -12,7 +12,7 @@ vip_event = Event()
 raft_loop = Event()
 up_event = Event()
 
-log_dir = os.path.expanduser('/tmp')+'/raft'
+log_dir = os.path.expanduser('/tmp') + '/raft'
 log_name = 'raft'
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
@@ -24,7 +24,8 @@ else:
 logger = logging.getLogger(log_name)
 # logger.setLevel(logging.INFO)
 logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(pathname)s %(funcName)s [line:%(lineno)d] %(threadName)s %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s %(pathname)s %(funcName)s [line:%(lineno)d] %(threadName)s %(message)s')
 
 logfile = handlers.TimedRotatingFileHandler(
     filename='{}/{}.log'.format(log_dir, log_name),
@@ -60,11 +61,13 @@ def local_ip():
     logger.info("当前IP{}".format(ip))
     return ip
 
+
 def Singleton(func):
     ins = {}
-    def _wraper(self,*args,**kwargs):
+
+    def _wraper(self, *args, **kwargs):
         if func not in ins:
-            ins[func] = func(self,*args,**kwargs)
+            ins[func] = func(self, *args, **kwargs)
         return ins[func]
     return _wraper
 
@@ -86,7 +89,8 @@ def stop_thread(thread, exctype=SystemExit):
     tid = ctypes.c_long(thread.ident)
     if not inspect.isclass(exctype):
         exctype = type(exctype)
-    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        tid, ctypes.py_object(exctype))
     logger.info("杀死线程结果{}".format(res))
     if res == 0:
         raise ValueError("invalid thread id")
@@ -95,7 +99,6 @@ def stop_thread(thread, exctype=SystemExit):
         # and you should call it again with exc=NULL to revert the effect"""
         ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
         raise SystemError("PyThreadState_SetAsyncExc failed")
-
 
 
 def spawn(**kwargs):

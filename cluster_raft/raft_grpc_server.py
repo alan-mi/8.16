@@ -19,6 +19,7 @@ class RaftService(raft_grpc_pb2_grpc.RaftServiceServicer):
             status=json.dumps(status)
         )
     # 注册
+
     def IsRegistered(self, request, context):
         from cluster_raft import raft_init
         ts = request.ts

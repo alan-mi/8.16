@@ -20,7 +20,8 @@ def _async_raise(tid, exctype):
     tid = ctypes.c_long(tid)
     if not inspect.isclass(exctype):
         exctype = type(exctype)
-    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        tid, ctypes.py_object(exctype))
     if res == 0:
         raise ValueError("invalid thread id")
     elif res != 1:
@@ -91,9 +92,7 @@ class RaftDaemon(object):
             current_id = random.randint(1, 1000)
             data_map = {
                 str(current_id): {
-                    'created_at': datetime.datetime.now().strftime('%d/%m/%y %H:%M')
-                }
-            }
+                    'created_at': datetime.datetime.now().strftime('%d/%m/%y %H:%M')}}
             await data_id.set(current_id)
             await data.update(data_map)
             await data_list.append(data_map)

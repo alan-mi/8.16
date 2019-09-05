@@ -32,8 +32,8 @@ class DCSyncObj(SyncObj):
 
     @replicated
     def add_node(self, value):
-        print("添加节点",value)
-        print("添加节点",self.allNodeAddrs)
+        print("添加节点", value)
+        print("添加节点", self.allNodeAddrs)
         if value not in self.allNodeAddrs:
             self.allNodeAddrs.append(value)
 
@@ -61,13 +61,14 @@ class DCSyncObj(SyncObj):
             pass
 
         else:
-            print('{} is in raft cluster. \n{}'.format(self.selfNodeAddr, self.allNodeAddrs))
+            print(
+                '{} is in raft cluster. \n{}'.format(
+                    self.selfNodeAddr,
+                    self.allNodeAddrs))
 
     @replicated
-    def set_task_status(self,task):
+    def set_task_status(self, task):
         self.__task_status = task
 
     def get_task_status(self):
         return self.__task_status
-
-

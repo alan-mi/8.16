@@ -18,7 +18,8 @@ Base = declarative_base()
 
 class SqliteDB(object):
     def __init__(self):
-        self.engine = create_engine('sqlite:///{}/db.sqlite3'.format(common.PROJECT_HOME))
+        self.engine = create_engine(
+            'sqlite:///{}/db.sqlite3'.format(common.PROJECT_HOME))
         self.tables = {
             'cluster_master_machinestatus': MachineStatus,
             'cluster_slave_localhoststatus': LocalhostStatus,
@@ -44,7 +45,8 @@ class SqliteDB(object):
 
     def shuffle_candidate(self):
         table_class = self.tables.get('cluster_master_machinestatus')
-        available_list = self.session.query(table_class).filter(table_class.is_online).all()
+        available_list = self.session.query(
+            table_class).filter(table_class.is_online).all()
         order_list = list(range(len(available_list)))
         random.shuffle(order_list)
         for i, o in zip(order_list, available_list):
@@ -54,10 +56,8 @@ class SqliteDB(object):
 
     def get_candidate(self):
         table_class = self.tables.get('cluster_master_machinestatus')
-        return self.session.query(table_class).filter_by(
-            host_port='{}:{}'.format(common.vip.ip, common.CLUSTER_CONF.get('slave_port')),
-            is_online=True
-        ).first()
+        return self.session.query(table_class).filter_by(host_port='{}:{}'.format(
+            common.vip.ip, common.CLUSTER_CONF.get('slave_port')), is_online=True).first()
 
     def get_master_db_info(self):
         table_class = self.tables.get('cluster_master_machinestatus')

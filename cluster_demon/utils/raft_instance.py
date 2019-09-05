@@ -33,4 +33,5 @@ if common.vip.ping_vip():
 else:
     common.raft_node_enable.is_set()
     common.raft_node_disable.clear()
-    RAFT_OBJ = DCSyncObj(common.current_node, [common.current_node] + common.other_nodes)
+    RAFT_OBJ = DCSyncObj(common.current_node,
+                         [common.current_node] + common.other_nodes)

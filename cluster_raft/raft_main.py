@@ -26,6 +26,7 @@ app = Sanic(__name__)
 
 sys.path.append("../")
 
+
 @app.route('/status', methods=["GET"])
 async def getStatus(request):
     res = raft_init.raft_obj.getStatus()
@@ -81,13 +82,21 @@ def vip_load():
             ts = int(time.time())
 
             try:
-                res_f = stub.GetStatus.future(raft_grpc_pb2.GetStatusReq(ts=str(ts)),timeout=3)
+                res_f = stub.GetStatus.future(
+                    raft_grpc_pb2.GetStatusReq(
+                        ts=str(ts)), timeout=3)
                 if res_f.result().ts == str(ts):
                     raft_status = json.loads(res_f.result().status)
                     # raft_status = raft_init.raft_obj.getStatus()
-                    logger.info("vip_event {},leader {}, self_node {},isReady {}".format(vip_event.is_set(), raft_status['leader'], raft_status['self'], raft_status["isReady"]))
+                    logger.info(
+                        "vip_event {},leader {}, self_node {},isReady {}".format(
+                            vip_event.is_set(),
+                            raft_status['leader'],
+                            raft_status['self'],
+                            raft_status["isReady"]))
 
-                    if vip_event.is_set() and raft_status['leader'] == raft_status['self'] and raft_status["state"] == 2:
+                    if vip_event.is_set(
+                    ) and raft_status['leader'] == raft_status['self'] and raft_status["state"] == 2:
                         dc_vip.vip.set_vip("up")
                         vip_event.clear()
                         logger.info("启动>>>cluster_server")
@@ -95,7 +104,8 @@ def vip_load():
                         cs = ClusterServer(addr="0.0.0.0:8300")
                         cs.start()
                         cli.append(cs)
-                    if not vip_event.is_set() and raft_status['leader'] != raft_status['self']:
+                    if not vip_event.is_set(
+                    ) and raft_status['leader'] != raft_status['self']:
                         dc_vip.vip.set_vip("down")
                         vip_event.set()
                         logger.info("停止>>>cluster_server")
@@ -166,9 +176,8 @@ async def raft_event_loop(raft_obj):
                         for n in list(alive_dict.keys()):
                             if n not in an.keys():
                                 del alive_dict[n]
-                        print('\n{}-{} {} \n{}'.format(
-                            status.get('leader'), status.get('raft_term'), len(an), an
-                        ))
+                        print('\n{}-{} {} \n{}'.format(status.get('leader'),
+                                                       status.get('raft_term'), len(an), an))
                         if status['leader']:
                             alive_time = time.time()
                     else:
@@ -186,15 +195,18 @@ async def raft_event_loop(raft_obj):
 
 def run_server():
     p = spawn(target=vip_load, name="find_vip")
-    try :
+    try:
         server = grpc.server(ThreadPoolExecutor(40))
         # 将对应的任务处理函数添加到rpc server中
-        raft_grpc_pb2_grpc.add_RaftServiceServicer_to_server(raft_grpc_server.RaftService(), server)
+        raft_grpc_pb2_grpc.add_RaftServiceServicer_to_server(
+            raft_grpc_server.RaftService(), server)
         # 这里使用的非安全接口，世界gRPC支持TLS/SSL安全连接，以及各种鉴权机制
-        server.add_insecure_port("0.0.0.0:{}".format(CONFIG.get("raft_grpc_port")))
+        server.add_insecure_port(
+            "0.0.0.0:{}".format(
+                CONFIG.get("raft_grpc_port")))
         server.start()
         # 开启服务
-        #TODO 开启进程选举会报错
+        # TODO 开启进程选举会报错
         app.run(
             host='0.0.0.0',
             # 8586端口 只是在muster启动
@@ -211,7 +223,3 @@ def run_server():
 
 if __name__ == '__main__':
     run_server()
-
-
-
-
