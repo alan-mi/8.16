@@ -3,7 +3,7 @@ import grpc
 import time
 import json
 
-from cluster_demon.utils.dc_vip import vip
+from cluster_master.utils.dc_vip import vip
 from cluster_raft import (
     raft_grpc_pb2,
     raft_grpc_pb2_grpc

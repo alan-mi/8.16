@@ -26,7 +26,7 @@ from cluster_raft import (
     raft_grpc_pb2,
     raft_grpc_pb2_grpc
 )
-from cluster_demon.utils import (
+from cluster_master.utils import (
     dc_vip,
     tools
 )

@@ -1,0 +1,17 @@
+syntax = "proto3";
+package cluster;
+
+
+message Req {
+    // 请求参数
+    string req_args = 1;
+}
+
+message Res {
+    // 结果
+    string res_content = 1;
+}
+
+service Computed {
+  rpc finish(Req) returns (Res) {};
+}

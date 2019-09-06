@@ -4,14 +4,14 @@ import time
 from concurrent import futures
 
 import grpc
-
-from cluster_demon.proto import sch_pb2, sch_pb2_grpc, agent_pb2, agent_pb2_grpc
-from cluster_demon.utils.tools import get_node_gpu_count, sch_response, agent_response
-from cluster_demon.utils.client_mongo import cli
 from cluster_raft.tools import logger
+from cluster_master.proto import sch_pb2, sch_pb2_grpc, agent_pb2, agent_pb2_grpc
+from cluster_master.utils.tools import sch_response, agent_response
+from cluster_master.utils.client_mongo import cli
 
 
 class ClusterGRPCServer(sch_pb2_grpc.SkylarkServicer):
+
     def HeartBeat(self, request, complext):
         version = request.version
         seq = request.seq
@@ -26,6 +26,7 @@ class ClusterGRPCServer(sch_pb2_grpc.SkylarkServicer):
         return sch_response(err)
 
     def TaskStatus(self, request, context):
+
         version = request.version
         seq = request.seq
         timestamp = request.timestamp
@@ -47,6 +48,7 @@ class ClusterGRPCServer(sch_pb2_grpc.SkylarkServicer):
                     res = cli.table.find_one({"gpus.status": body["taskID"]})
                     with grpc.insecure_channel(res["intranetAddress"]) as channel:
                         stub = agent_pb2_grpc.AgentServerStub(channel=channel)
+
                         stub.TaskStart(agent_response(body))
                 except KeyError:
                     err.update(msg="Not taskID")

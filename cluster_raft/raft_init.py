@@ -1,4 +1,6 @@
 # coding:utf-8
+import multiprocessing
+
 from cluster_raft import tools
 from cluster_raft.raft_obj import DCSyncObj
 from cluster_raft.tools import local_ip

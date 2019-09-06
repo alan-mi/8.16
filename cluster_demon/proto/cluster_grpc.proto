@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-message Task {
-    string data = 1;
-}
-
-service RaftService {
-    rpc GetTask(Task) returns (Task);
-}

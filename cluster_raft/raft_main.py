@@ -7,9 +7,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 
-
-from cluster_demon.cluster_server import ClusterServer
-from cluster_demon.utils import dc_vip
+from cluster_master.utils import dc_vip
 
 
 from cluster_raft import raft_init, tools, raft_grpc_pb2
@@ -18,7 +16,7 @@ import grpc
 from cluster_raft import raft_grpc_pb2_grpc, raft_grpc_server
 from sanic import Sanic, request, response
 
-from cluster_raft.tools import vip_event, logger, stop_thread, spawn, up_event
+from cluster_raft.tools import vip_event, logger, stop_thread, spawn, up_cluster_event
 
 from conf import CONFIG
 
@@ -76,7 +74,6 @@ def vip_load():
 
         # p = multiprocessing.Process(target=send_status_to_schedule, args=())
         # p.daemon = True
-        cli = []
         while True:
             time.sleep(3)
             ts = int(time.time())
@@ -99,23 +96,23 @@ def vip_load():
                     ) and raft_status['leader'] == raft_status['self'] and raft_status["state"] == 2:
                         dc_vip.vip.set_vip("up")
                         vip_event.clear()
-                        logger.info("启动>>>cluster_server")
-                        up_event.set()
-                        cs = ClusterServer(addr="0.0.0.0:8300")
-                        cs.start()
-                        cli.append(cs)
+                        up_cluster_event.set()
+                        # logger.info("启动>>>cluster_server")
+                        # cs = ClusterServer(addr="0.0.0.0:8300")
+                        # cs.start()
+                        # cli.append(cs)
                     if not vip_event.is_set(
                     ) and raft_status['leader'] != raft_status['self']:
                         dc_vip.vip.set_vip("down")
                         vip_event.set()
-                        logger.info("停止>>>cluster_server")
-                        up_event.clear()
-                        cli.pop().stop()
+                        up_cluster_event.clear()
+
+                        # cli.pop().stop()
             except Exception as e:
                 logger.info(e)
-                logger.info("停止>>>cluster_server")
-                for i in cli:
-                    i.stop()
+                # logger.info("停止>>>cluster_server")
+                # for i in cli:
+                #     i.stop()
                 continue
 
 

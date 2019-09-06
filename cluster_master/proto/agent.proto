@@ -1,0 +1,19 @@
+syntax = "proto3";
+option java_multiple_files = true;
+option java_package = "io.grpc.tesra";
+option java_outer_classname = "TesraProto";
+option objc_class_prefix = "TSP";
+package tesra;
+
+service AgentServer {
+  rpc TaskStart(Proto) returns (Proto);
+  rpc TaskStop(Proto) returns (Proto);
+}
+
+message Proto {
+  int32 version = 1;
+  int64 seq = 2;
+  int64 timestamp = 3;
+  bytes body = 4;
+}
+

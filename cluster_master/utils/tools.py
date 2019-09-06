@@ -7,10 +7,10 @@ import grpc
 import psutil
 import traceback
 
-from cluster_demon.proto import sch_pb2_grpc, sch_pb2, agent_pb2
+from cluster_master.proto import sch_pb2_grpc, sch_pb2, agent_pb2
 from cluster_raft.tools import logger
 from conf import CONFIG
-from cluster_demon.utils.client_mongo import cli, Mongo
+from cluster_master.utils.client_mongo import cli, Mongo
 
 
 def update_shell_dc(i: dict, k: str, c: str, default: str = '') -> None:
@@ -187,6 +187,21 @@ def local_ip():
     return ip
 
 
+def sch_response(res):
+    return sch_pb2.Proto(
+        version=1,
+        seq=1,
+        timestamp=int(
+            time.time()),
+        body=json.dumps(res).encode())
+
+
+def agent_response(res):
+    return agent_pb2.Proto(
+        version=1, seq=1, timestamp=int(
+            time.time()), body=json.dumps(res).encode())
+
+
 def heart_beat():
     mongo = Mongo(
         host='192.168.137.2',
@@ -258,8 +273,7 @@ def heart_schedule():
                         body, e))
 
 
-def send_status_to_schedule():
-    logger.info("心跳任务启动")
+def login_and_update():
     login_schedule()
     heart_schedule()
 
@@ -287,11 +301,13 @@ def finish():
 
 if __name__ == '__main__':
     import multiprocessing
-    p = multiprocessing.Process(target=send_status_to_schedule, args=())
+
+    p = multiprocessing.Process(target=start_heart_cluster, args=())
     p.daemon = True
     p.start()
     print(p.pid, "子进程")
     import psutil
+
     ps = psutil.Process()
     print(ps.pid, '当前进程', os.getpid(), os.getppid())
     print(ps.children(recursive=True), "child")
@@ -306,20 +322,3 @@ if __name__ == '__main__':
     print(p.is_alive(), "子进程是否活着")
     print(ps.status())
     time.sleep(10)
-
-
-def sch_response(res):
-
-    return sch_pb2.Proto(
-        version=1,
-        seq=1,
-        timestamp=int(
-            time.time()),
-        body=json.dumps(res).encode())
-
-
-def agent_response(res):
-
-    return agent_pb2.Proto(
-        version=1, seq=1, timestamp=int(
-            time.time()), body=json.dumps(res).encode())
