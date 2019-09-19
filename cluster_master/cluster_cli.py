@@ -11,11 +11,12 @@ from cluster_master.proto import sch_pb2_grpc, sch_pb2
 import time
 
 from cluster_master.utils.client_mongo import cli
+from conf import CONFIG
 
 
 def test_rpc_heart():
     try:
-        with grpc.insecure_channel("192.168.137.200:8300") as channel:
+        with grpc.insecure_channel("192.168.137.200:{}".format(CONFIG.get("master_port"))) as channel:
             stub = sch_pb2_grpc.SkylarkStub(channel=channel)
             # time.sleep(3)
             a = {"machineID": "_001|_{:03}".format(random.randint(0, 1000)),
@@ -58,7 +59,7 @@ def test_rpc_heart():
 
 def test_rpc_task():
     try:
-        with grpc.insecure_channel("192.168.137.200:8300") as channel:
+        with grpc.insecure_channel("192.168.137.200:{}".format(CONFIG.get("master_port"))) as channel:
             stub = sch_pb2_grpc.SkylarkStub(channel=channel)
             # time.sleep(3)
             status = random.choice(["start", "stop"])
@@ -76,7 +77,7 @@ def test_rpc_task():
                 "runParam": "",
                 "projectName": "pytorch_demo.zip",
                 "outputPath": "pytorch_demo/demo_s_d/out",
-                "status": "start"
+                "status": "stop"
             }
             res = stub.TaskStatus(
                 sch_pb2.Proto(
@@ -94,7 +95,7 @@ def test_rpc_task():
 if __name__ == '__main__':
     i = 0
     while True:
-        # test_rpc_heart()
+        test_rpc_heart()
         i += 1
         print("织女星", i)
         test_rpc_task()

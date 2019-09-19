@@ -1,4 +1,7 @@
 import os
+import queue
+import select
+import threading
 import time
 import json
 from socket import socket, AF_INET, SOCK_STREAM
@@ -8,9 +11,9 @@ import psutil
 import traceback
 
 from cluster_master.proto import sch_pb2_grpc, sch_pb2, agent_pb2
-from cluster_raft.tools import logger
+from cluster_raft.tools import logger, spawn, stop_thread
 from conf import CONFIG
-from cluster_master.utils.client_mongo import cli, Mongo
+
 
 
 def update_shell_dc(i: dict, k: str, c: str, default: str = '') -> None:
@@ -191,23 +194,22 @@ def sch_response(res):
     return sch_pb2.Proto(
         version=1,
         seq=1,
-        timestamp=int(
-            time.time()),
+        timestamp=int(time.time()),
         body=json.dumps(res).encode())
 
 
 def agent_response(res):
     return agent_pb2.Proto(
-        version=1, seq=1, timestamp=int(
-            time.time()), body=json.dumps(res).encode())
+        version=1,
+        seq=1,
+        timestamp=int(time.time()),
+        body=json.dumps(res).encode())
 
 
 def heart_beat():
-    mongo = Mongo(
-        host='192.168.137.2',
-        port=27017,
-        db="cluster",
-        table="machines")
+    from cluster_master.utils.client_mongo import cli, Mongo
+    mongo_host = CONFIG.get("mongo_center")
+    mongo = Mongo(host=mongo_host, db="cluster", table="machines")
     heart_beat_body = {}
     LOCAL_HOST = local_ip()
     grpc_public_port = CONFIG.get("grpc_public_port")
@@ -299,10 +301,48 @@ def finish():
         stub = sch_pb2_grpc.SkylarkStub(channel=channel)
 
 
+def min_time_lead(num = 0):
+    return int(time.time()) - num
+
+
+class PollableQueue(queue.Queue):
+
+    def __init__(self):
+        super().__init__()
+        import socket
+        if os.name == 'posix':
+            self._putsoket, self._getsocket = socket.socketpair()
+        else:
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.bind(('127.0.0.1', 0))
+            server.listen(1)
+            self._putsoket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._putsoket.connect(server.getsockname())
+            # print(server.getsockname())
+            self._getsocket, self.addr = server.accept()
+            server.close()
+
+    def fileno(self):
+        return self._getsocket.fileno()
+
+    def put(self, item):
+        super().put(item)
+        self._putsoket.send(b"x")
+
+    def get(self):
+        # print(self.addr)
+        self._getsocket.recv(1)
+        return super().get()
+
+
+q1 = PollableQueue()
+
+
+
 if __name__ == '__main__':
     import multiprocessing
 
-    p = multiprocessing.Process(target=start_heart_cluster, args=())
+    p = multiprocessing.Process(target=login_and_update, args=())
     p.daemon = True
     p.start()
     print(p.pid, "子进程")
@@ -322,3 +362,5 @@ if __name__ == '__main__':
     print(p.is_alive(), "子进程是否活着")
     print(ps.status())
     time.sleep(10)
+
+

@@ -1,27 +1,27 @@
 # coding:utf-8
+import copy
 import time
 from datetime import datetime
+from functools import wraps
 
 import pymongo
 import collections
+
+from cluster_master.utils.tools import min_time_lead
 from cluster_raft.tools import logger
+from conf import CONFIG
+
+MONGOHEARTIME = 5
 
 
-class Mongo:
-    def __init__(self, host, port, db, table):
-        self.db = db
-        self.table = table
-        self.connect(host, port)
-        self.db = self.client[db]
-        self.table = self.db[table]
-
-    def connect(self, host, port):
+def connect(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
         count = 1
         while True:
-            self.client = pymongo.MongoClient(
-                host, port, serverSelectionTimeoutMS=3000)
             try:
                 self.client.admin.command("ping")
+                logger.info("连接mongo")
             except Exception as e:
                 logger.info("第{}连接数据库失败...{}".format(count, e))
                 count = count + 1
@@ -29,6 +29,24 @@ class Mongo:
                 break
             if count == 4:
                 exit("退出")
+
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+class Mongo:
+    def __init__(self, host, db="cluster", table="machines"):
+        self.db = db
+        self.table = table
+        self.client = pymongo.MongoClient(host=host,
+                                          readPreference="primaryPreferred",
+                                          replicaSet="testrepl",
+                                          connectTimeoutMS=100,
+                                          serverSelectionTimeoutMS=100)
+        # self.connect()
+        self.db = self.client[db]
+        self.table = self.db[table]
 
     def add_data(self, data):
         self.table.insert_one(data)
@@ -42,7 +60,7 @@ class Mongo:
         :return: 集群信息
         """
         rule = {'ctrlAvailable': 'Y'}
-        rule.update({"heartBeat": {"$gte": int(time.time()) - 5}})
+        rule.update({"heartBeat": {"$gte": min_time_lead(MONGOHEARTIME)}})
         print(rule)
         machines = self.find_data(rule)
         return machines
@@ -62,8 +80,12 @@ class Mongo:
             cli.table.update(rule, task)
 
     def use_gpu_by_num(self):
+        '''
+        获取所有的可用gpu
+        :return: all_gpu
+        '''
         res = self.table.aggregate(
-            [{"$match": {"heartBeat": {"$gte": int(time.time()) - 5}, "gpus.status": None}},
+            [{"$match": {"heartBeat": {"$gte": min_time_lead(MONGOHEARTIME)}, "gpus.status": None}},
              {"$project": {"gpus": 1, "_id": 0}},
              {"$unwind": "$gpus"}])
         it = [gpu["gpus"]["model"] for gpu in res if not gpu["gpus"]["status"]]
@@ -76,10 +98,11 @@ class Mongo:
         for model in need_gpus:
             rule = {
                 "heartBeat": {
-                    "$gte": int(
-                        time.time()) - 5},
-                "gpus.status": None}
+                    "$gte": min_time_lead(MONGOHEARTIME)},
+                "gpus.status": None,
+                "gpus.model": model["model"]}
             res = self.table.find(rule).sort('heartBeat', pymongo.DESCENDING)
+            logger.info(model["count"])
             for machine in res:
                 for gpu in machine["gpus"]:
                     if gpu.get("model") == model["model"] and not gpu.get(
@@ -90,9 +113,12 @@ class Mongo:
                             mac[machine["machineID"]] = [gpu["id"]]
                         else:
                             mac[machine["machineID"]].append(gpu["id"])
-                self.table.update({"machineID": machine["machineID"]}, machine)
+                self.table.update({"_id": machine["_id"]}, machine)
+                if model["count"] == 0:
+                    break
         task["taskID"] = task_id
         task["machines"] = mac
+        logger.info(task)
         return task
 
     def compare_gpu(self, gpus):
@@ -115,18 +141,17 @@ class Mongo:
         :return:
         """
         doc = self.table.find_one({"machineID": machine["machineID"]})
-        machine.update({"heartBeat": int(time.time())})
+        machine.update({"heartBeat": min_time_lead()})
         if not doc:
             self.add_data(machine)
         else:
-            if doc.get("heartBeat") < int(time.time()) - 5:
+            if doc.get("heartBeat") < min_time_lead(MONGOHEARTIME):
                 for gpu in doc.get("gpus"):
                     if gpu["status"]:
                         self.table.update_one(
                             doc, {
                                 "$set": {
-                                    "heartBeat": int(
-                                        time.time())}})
+                                    "heartBeat": min_time_lead()}})
                         break
                 else:
                     self.table.delete_one(doc)
@@ -134,14 +159,12 @@ class Mongo:
                     self.table.update_one(
                         machine, {
                             "$set": {
-                                "heartBeat": int(
-                                    time.time())}})
+                                "heartBeat": min_time_lead()}})
             else:
                 self.table.update_one(
                     doc, {
                         "$set": {
-                            "heartBeat": int(
-                                time.time())}})
+                            "heartBeat": min_time_lead()}})
 
 
 a = {
@@ -165,10 +188,9 @@ a = {
             "status": None
         }
     ],
-    "heartBeat": int(time.time())
 }
-
-cli = Mongo(host='192.168.137.2', port=27017, db="cluster", table="machines")
+mongo_host = CONFIG.get("mongo_center")
+cli = Mongo(host=mongo_host)
 
 # cli.add_data(a)
 task_id = None
@@ -193,7 +215,8 @@ if __name__ == '__main__':
     #     # time.sleep(3)
     #     cli.table.update_many({'ctrlAvailable': 'N'}, {"$set": {"heartBeat": int(time.time()), "gpus.{}.status".format(i): None}}, )
     # cli.table.delete_one({'ctrlAvailable': 'N'})
-    # cli.table.update_many({'ctrlAvailable': 'N'}, {"$set": {"heartBeat": int(time.time())}}, )
+    cli.table.update_many({}, {"$set": {"heartBeat": int(time.time())}}, )
+    # cli.table.update_many({'ctrlAvailable': 'N'}, {"$set": {'gpus.2.status': None}}, )
     # cli.use_gpu_by_num()
     # print(cli.table.find({'ctrlAvailable': 'Y'}))
     # if not list(cli.table.find({'ctrlAvailable': 'Y'})):
@@ -201,8 +224,15 @@ if __name__ == '__main__':
     # cli.table.delete_many({"machineID": "_003|_03"})
 
     gpus = [{"model": "GeForce GTX 1080 Ti", "count": 1},
-            {"model": "GeForce GTX 1070 Ti", "count": 1}]
+            {"model": "GeForce GTX 1070 Ti", "count": 5}]
     if cli.compare_gpu(gpus):
-        print(cli.chooice_use_gpu_by_num(gpus, "TX0010231"))
-    while True:
-        cli.free_gpu_by_task_id("TX0010231")
+        ...
+        for i in range(1):
+            gp = copy.deepcopy(gpus)
+            print(gpus)
+            b = cli.chooice_use_gpu_by_num(gp, "TX0010231")
+            print(b)
+    # while True:
+    #     cli.free_gpu_by_task_id("TX0010231")
+
+    cli.insert_update(a)

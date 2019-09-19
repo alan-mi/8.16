@@ -74,6 +74,7 @@ def vip_load():
 
         # p = multiprocessing.Process(target=send_status_to_schedule, args=())
         # p.daemon = True
+        from cluster_master.cluster import q1
         while True:
             time.sleep(3)
             ts = int(time.time())
@@ -97,6 +98,7 @@ def vip_load():
                         dc_vip.vip.set_vip("up")
                         vip_event.clear()
                         up_cluster_event.set()
+                        q1.put("start")
                         # logger.info("启动>>>cluster_server")
                         # cs = ClusterServer(addr="0.0.0.0:8300")
                         # cs.start()
@@ -106,6 +108,7 @@ def vip_load():
                         dc_vip.vip.set_vip("down")
                         vip_event.set()
                         up_cluster_event.clear()
+                        q1.put("stop")
 
                         # cli.pop().stop()
             except Exception as e:

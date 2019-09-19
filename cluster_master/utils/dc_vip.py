@@ -91,6 +91,7 @@ class Vip(object):
 
     def set_vip(self, op, v=True):
         vip = self.check_vip()
+        print(vip)
         if op == 'up':
             if vip:
                 self.broadcast_vip(v=False)
@@ -202,3 +203,5 @@ class Vip(object):
 
 
 vip = Vip()
+if __name__ == '__main__':
+    vip.set_vip("up",True)

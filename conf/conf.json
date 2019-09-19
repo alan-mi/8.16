@@ -27,7 +27,7 @@
   "sch_callback_port_prefix": "22000",
   "id": "",
   "cluster_lv1_call_center": "47.111.5.37:6001",
-  "mongo_center": "47.110.155.194:9000",
+  "mongo_center": "mongodb://192.168.137.2:10001,192.168.137.3:10001,192.168.137.4:10001/",
   "public_ip": "113.204.194.92",
   "public_port": 18589,
   "arp_cheat_ip": "192.168.137.25",
